@@ -1,0 +1,828 @@
+classification:
+  rule: |
+    riskTier := "Low"
+    if classificationInputs["ModelComplexity"].(string) == "High" || classificationInputs["BusinessImpact"].(string) == "High" {
+        riskTier = "High"
+    } else if classificationInputs["ModelComplexity"].(string) == "Medium" || classificationInputs["BusinessImpact"].(string) == "Medium" {
+        riskTier = "Medium"
+    }
+    
+    validationLevel := "00"
+    if riskTier == "High" {
+        validationLevel = "11"
+    } else if riskTier == "Medium" {
+        validationLevel = "10"
+    }
+    
+    return validationLevel
+  artifacts:
+    - model-validation-sr-11-7
+
+stages:
+  - name: Model Development and Documentation
+    evidenceSet:
+      - id: Local.model-purpose
+        name: Model Purpose and Business Context
+        description: Define the business problem, intended use, and model objectives per SR 11-7 requirements
+        definition:
+          - artifactType: input
+            details:
+              label: What is the primary business purpose of this model?
+              type: textarea
+              placeholder: Describe the specific business problem this model addresses, its intended use cases, and expected business value...
+          - artifactType: input
+            aliasForClassification: BusinessImpact
+            details:
+              label: What is the potential business impact of this model?
+              type: radio
+              options:
+                - High (Critical business decisions, regulatory reporting, >$10M impact)
+                - Medium (Important operational decisions, $1M-$10M impact)
+                - Low (Supporting analytics, <$1M impact)
+          - artifactType: input
+            details:
+              label: Select all applicable use cases for this model
+              type: checkbox
+              options:
+                - Credit Underwriting
+                - Market Risk Assessment
+                - Fraud Detection
+                - Regulatory Capital Calculation
+                - Pricing and Valuation
+                - Customer Segmentation
+                - Operational Risk
+                - Stress Testing
+                - Other (specify in comments)
+      
+      - id: Local.model-design
+        name: Model Design and Methodology
+        description: Document model design choices, theoretical foundation, and methodology
+        definition:
+          - artifactType: input
+            aliasForClassification: ModelComplexity
+            details:
+              label: What is the complexity level of this model?
+              type: radio
+              options:
+                - High (Deep learning, ensemble methods, >100 features)
+                - Medium (Machine learning, 20-100 features)
+                - Low (Statistical models, <20 features)
+          - artifactType: input
+            details:
+              label: Primary modeling approach
+              type: select
+              options:
+                - Linear/Logistic Regression
+                - Decision Trees/Random Forest
+                - Gradient Boosting (XGBoost/LightGBM)
+                - Neural Networks/Deep Learning
+                - Time Series (ARIMA/Prophet)
+                - Clustering/Unsupervised
+                - Natural Language Processing
+                - Computer Vision
+                - Reinforcement Learning
+                - Statistical/Econometric
+                - Other
+          - artifactType: input
+            details:
+              label: Provide theoretical justification for the chosen methodology
+              type: textarea
+              placeholder: Explain why this approach is appropriate for the business problem, including references to relevant research or industry practices...
+          - artifactType: input
+            details:
+              label: Document key assumptions underlying the model
+              type: textarea
+              placeholder: List all critical assumptions about data distributions, market conditions, customer behavior, etc...
+      
+      - id: Local.data-assessment
+        name: Data Sources and Quality Assessment
+        description: Document data sources, quality checks, and relevance per SR 11-7 Section IV
+        definition:
+          - artifactType: input
+            details:
+              label: Primary data sources used in model development
+              type: checkbox
+              options:
+                - Internal transactional data
+                - Internal customer data
+                - Market data feeds
+                - Third-party/vendor data
+                - Public/open source data
+                - Synthetic/simulated data
+                - Real-time streaming data
+          - artifactType: input
+            details:
+              label: Data quality assessment completed?
+              type: radio
+              options:
+                - Yes - Comprehensive quality checks performed
+                - Partial - Some quality issues identified and documented
+                - No - Quality assessment pending
+          - artifactType: input
+            details:
+              label: Describe data quality findings and any limitations
+              type: textarea
+              placeholder: Document completeness, accuracy, timeliness, and any data quality issues or limitations...
+          - artifactType: input
+            details:
+              label: For external data sources, describe validation procedures
+              type: textarea
+              placeholder: How was external data validated for appropriateness and quality?
+              conditionalDisplay:
+                dependsOn: Local.data-assessment
+                showIfContains: ["Third-party/vendor data", "Public/open source data"]
+      
+      - id: Local.model-testing
+        name: Model Development Testing
+        description: Document testing performed during model development
+        definition:
+          - artifactType: input
+            details:
+              label: Development testing approaches used
+              type: checkbox
+              options:
+                - Cross-validation
+                - Hold-out test set
+                - Temporal validation
+                - Bootstrap analysis
+                - Sensitivity testing
+                - Stress testing
+                - A/B testing framework
+                - Adversarial testing
+          - artifactType: input
+            details:
+              label: Model development code location (provide path or URL)
+              type: textinput
+              placeholder: Enter the path to your model development notebooks/code (e.g., /domino/projects/model-dev/notebooks/)
+          - artifactType: metadata
+            details:
+              type: modelmetric
+              metrics:
+                - name: accuracy
+                  label: Accuracy
+                  threshold:
+                    operator: '>='
+                    value: 0.85
+                - name: precision
+                  label: Precision
+                  threshold:
+                    operator: '>='
+                    value: 0.80
+                - name: recall
+                  label: Recall
+                  threshold:
+                    operator: '>='
+                    value: 0.75
+                - name: f1_score
+                  label: F1 Score
+                  threshold:
+                    operator: '>='
+                    value: 0.78
+                - name: auc_roc
+                  label: AUC-ROC
+                  threshold:
+                    operator: '>='
+                    value: 0.70
+    
+    approvals:
+      - name: Model Development Sign Off
+        allowAdditionalApprovers: true
+        approvers:
+          - modeling-practitioners
+        evidence:
+          id: Local.dev-signoff
+          name: Development Team Sign-off
+          description: Confirm model development is complete and ready for validation
+          definition:
+            - artifactType: input
+              details:
+                label: I confirm that model development is complete and all documentation is accurate
+                type: radio
+                options:
+                  - Yes
+                  - No
+            - artifactType: input
+              details:
+                label: Additional comments or concerns
+                type: textarea
+                placeholder: Note any outstanding issues or limitations...
+
+  - name: Independent Model Validation
+    evidenceSet:
+      - id: Local.conceptual-soundness
+        name: Conceptual Soundness Review
+        description: Independent evaluation of model design and construction per SR 11-7 Section V
+        definition:
+          - artifactType: input
+            details:
+              label: Is the model methodology appropriate for the stated business purpose?
+              type: radio
+              options:
+                - Yes - Fully appropriate and well-justified
+                - Partially - Some concerns noted
+                - No - Significant issues identified
+          - artifactType: input
+            details:
+              label: Are model assumptions reasonable and well-documented?
+              type: radio
+              options:
+                - Yes - All assumptions are reasonable
+                - Partially - Some assumptions need clarification
+                - No - Critical assumptions are unrealistic
+          - artifactType: input
+            details:
+              label: Provide detailed findings from conceptual soundness review
+              type: textarea
+              placeholder: Document review of theory, methodology, assumptions, and implementation...
+          - artifactType: policyScriptedCheck
+            details:
+              name: Model Complexity and Interpretability Analysis
+              command: python /scripts/model_interpretability_check.py --model-id ${model_id} --model-type ${model_type}
+              parameters:
+                - name: model_id
+                  type: text
+                  default: ${model_registry_id}
+                - name: model_type
+                  type: select
+                  options: [linear, tree_based, neural_network, ensemble]
+              environment: Domino Standard Environment Py3.10
+              hardwareTier: small-k8s
+              volumeSizeGiB: 8
+              outputTypes:
+                - png
+                - json
+                - txt
+      
+      - id: Local.performance-validation
+        name: Performance Validation and Testing
+        description: Independent validation of model performance and robustness
+        definition:
+          - artifactType: input
+            details:
+              label: Validation dataset used
+              type: select
+              options:
+                - Separate holdout dataset (not used in development)
+                - Out-of-time validation data
+                - External benchmark dataset
+                - Synthetic stress test data
+          - artifactType: input
+            details:
+              label: Performance meets stated objectives?
+              type: radio
+              options:
+                - Exceeds expectations
+                - Meets expectations
+                - Below expectations but acceptable
+                - Does not meet minimum requirements
+          - artifactType: policyScriptedCheck
+            details:
+              name: Comprehensive Performance Validation Suite
+              command: python /scripts/performance_validation.py --model-id ${model_id} --validation-type ${validation_type} --generate-report true
+              parameters:
+                - name: model_id
+                  type: text
+                  default: ${model_registry_id}
+                - name: validation_type
+                  type: select
+                  options: [standard, temporal, adversarial, stress]
+              environment: Domino Standard Environment Py3.10
+              hardwareTier: medium
+              volumeSizeGiB: 16
+              outputTypes:
+                - pdf
+                - png
+                - json
+      
+      - id: Local.bias-fairness
+        name: Bias and Fairness Assessment
+        description: Evaluate model for bias and discriminatory outcomes
+        definition:
+          - artifactType: input
+            details:
+              label: Protected attributes evaluated
+              type: checkbox
+              options:
+                - Age
+                - Gender
+                - Race/Ethnicity
+                - Geographic Location
+                - Income Level
+                - Other Protected Classes
+                - Not Applicable
+          - artifactType: input
+            details:
+              label: Fairness metrics evaluated
+              type: checkbox
+              options:
+                - Demographic Parity
+                - Equalized Odds
+                - Equal Opportunity
+                - Calibration by Group
+                - Individual Fairness
+                - Counterfactual Fairness
+          - artifactType: policyScriptedCheck
+            details:
+              name: Bias Detection and Fairness Analysis
+              command: python /scripts/bias_fairness_analysis.py --model-id ${model_id} --sensitive-features "${sensitive_features}" --fairness-metrics "${fairness_metrics}"
+              parameters:
+                - name: model_id
+                  type: text
+                  default: ${model_registry_id}
+                - name: sensitive_features
+                  type: text
+                  default: age,gender,race
+                - name: fairness_metrics
+                  type: text
+                  default: demographic_parity,equalized_odds
+              environment: Domino Standard Environment Py3.10
+              hardwareTier: medium
+              volumeSizeGiB: 16
+              outputTypes:
+                - png
+                - pdf
+                - json
+      
+      - id: Local.robustness-stability
+        name: Robustness and Stability Testing
+        description: Assess model stability under various conditions
+        definition:
+          - artifactType: input
+            details:
+              label: Stability testing performed
+              type: checkbox
+              options:
+                - Feature perturbation analysis
+                - Missing data robustness
+                - Outlier sensitivity
+                - Temporal stability
+                - Cross-segment stability
+                - Adversarial robustness
+          - artifactType: policyScriptedCheck
+            details:
+              name: Model Robustness and Stability Analysis
+              command: python /scripts/robustness_testing.py --model-id ${model_id} --test-types "${test_types}" --perturbation-level ${perturbation_level}
+              parameters:
+                - name: model_id
+                  type: text
+                  default: ${model_registry_id}
+                - name: test_types
+                  type: text
+                  default: feature_perturbation,temporal_stability,outlier_sensitivity
+                - name: perturbation_level
+                  type: select
+                  options: [low, medium, high]
+                  default: medium
+              environment: Domino Standard Environment Py3.10
+              hardwareTier: medium
+              volumeSizeGiB: 16
+              outputTypes:
+                - png
+                - json
+                - txt
+      
+      - id: Local.limitations-risks
+        name: Model Limitations and Risk Assessment
+        description: Document model limitations, failure modes, and residual risks
+        definition:
+          - artifactType: input
+            details:
+              label: Document identified model limitations
+              type: textarea
+              placeholder: Describe scenarios where model may fail or produce unreliable results...
+          - artifactType: input
+            details:
+              label: Model risk rating after validation
+              type: select
+              options:
+                - Low Risk - Limited business impact, well-understood limitations
+                - Medium Risk - Moderate impact, some limitations require monitoring
+                - High Risk - Significant impact, critical limitations require controls
+                - Very High Risk - Not recommended for production use
+          - artifactType: input
+            details:
+              label: Recommended risk mitigants
+              type: checkbox
+              options:
+                - Human review of high-impact decisions
+                - Automated monitoring and alerts
+                - Regular revalidation schedule
+                - Business rule overlays
+                - Ensemble with other models
+                - Limited scope of use
+                - Additional testing required
+    
+    approvals:
+      - name: Independent Validation Sign Off
+        allowAdditionalApprovers: true
+        approvers:
+          - modeling-review
+        evidence:
+          id: Local.validation-signoff
+          name: Validation Team Approval
+          description: Independent validation team approval
+          definition:
+            - artifactType: input
+              details:
+                label: Based on validation findings, do you recommend this model for production use?
+                type: radio
+                options:
+                  - Approved without conditions
+                  - Approved with conditions (specify below)
+                  - Not approved - requires remediation
+                  - Not approved - fundamental issues
+            - artifactType: input
+              details:
+                label: Validation conditions or requirements
+                type: textarea
+                placeholder: Specify any conditions that must be met...
+                conditionalDisplay:
+                  dependsOn: Local.validation-signoff
+                  showIfValue: Approved with conditions (specify below)
+
+  - name: Governance and Compliance Review
+    evidenceSet:
+      - id: Local.documentation-review
+        name: Documentation Completeness Review
+        description: Ensure all required documentation per SR 11-7 is complete
+        definition:
+          - artifactType: input
+            details:
+              label: Required documentation checklist
+              type: checkbox
+              options:
+                - Model purpose and business context
+                - Technical methodology documentation
+                - Data dictionary and sources
+                - Assumption documentation
+                - Testing and validation results
+                - Model limitations documentation
+                - User guide and interpretation
+                - Model card completed
+          - artifactType: input
+            details:
+              label: Documentation quality assessment
+              type: radio
+              options:
+                - Excellent - Comprehensive and clear
+                - Good - Meets requirements
+                - Adequate - Some gaps but acceptable
+                - Poor - Significant gaps
+      
+      - id: Local.regulatory-compliance
+        name: Regulatory Compliance Assessment
+        description: Verify compliance with SR 11-7 and other applicable regulations
+        definition:
+          - artifactType: input
+            details:
+              label: Regulatory requirements applicable to this model
+              type: checkbox
+              options:
+                - SR 11-7 Model Risk Management
+                - Fair Lending (ECOA/Reg B)
+                - GDPR/Privacy Requirements
+                - Basel III Capital Requirements
+                - Stress Testing (CCAR/DFAST)
+                - Market Risk Rule
+                - Other (specify)
+          - artifactType: input
+            details:
+              label: Model complies with all applicable regulations?
+              type: radio
+              options:
+                - Yes - Full compliance verified
+                - Conditional - Minor gaps to address
+                - No - Significant compliance issues
+          - artifactType: input
+            details:
+              label: Legal review required?
+              type: radio
+              options:
+                - Yes
+                - No
+      
+      - id: Local.it-security
+        name: IT Security and Data Governance Review
+        description: Ensure model meets IT security and data governance requirements
+        definition:
+          - artifactType: input
+            details:
+              label: Data sensitivity classification
+              type: select
+              options:
+                - Public
+                - Internal Use Only
+                - Confidential
+                - Highly Confidential
+                - Restricted
+          - artifactType: input
+            details:
+              label: Security controls implemented
+              type: checkbox
+              options:
+                - Access controls configured
+                - Data encryption at rest
+                - Data encryption in transit
+                - Audit logging enabled
+                - PII masking/tokenization
+                - Secure API endpoints
+                - Vulnerability scan completed
+          - artifactType: input
+            details:
+              label: IT Security approval status
+              type: radio
+              options:
+                - Approved
+                - Approved with conditions
+                - Not approved
+                - Review not required
+        visibilityRule: string(classificationValue[0]) == "1"
+    
+    approvals:
+      - name: Risk and Compliance Sign Off
+        allowAdditionalApprovers: true
+        approvers:
+          - modeling-leadership
+          - infosec-leadership
+          - legal-leadership
+        evidence:
+          id: Local.governance-signoff
+          name: Governance Committee Approval
+          description: Final governance approval for model deployment
+          definition:
+            - artifactType: input
+              details:
+                label: Model Risk Committee recommendation
+                type: radio
+                options:
+                  - Approved for production
+                  - Approved with restrictions
+                  - Deferred pending remediation
+                  - Not approved
+            - artifactType: input
+              details:
+                label: Effective date for production use
+                type: date
+                conditionalDisplay:
+                  dependsOn: Local.governance-signoff
+                  showIfContains: ["Approved for production", "Approved with restrictions"]
+            - artifactType: input
+              details:
+                label: Usage restrictions or conditions
+                type: textarea
+                placeholder: Specify any restrictions on model use...
+                conditionalDisplay:
+                  dependsOn: Local.governance-signoff
+                  showIfValue: Approved with restrictions
+
+  - name: Production Readiness and Deployment
+    evidenceSet:
+      - id: Local.implementation-plan
+        name: Implementation and Deployment Plan
+        description: Document deployment approach and production readiness
+        definition:
+          - artifactType: input
+            details:
+              label: Deployment approach
+              type: select
+              options:
+                - Direct cutover
+                - Parallel run with existing model
+                - Phased rollout by segment
+                - A/B test deployment
+                - Shadow mode deployment
+          - artifactType: input
+            details:
+              label: Production environment requirements documented?
+              type: radio
+              options:
+                - Yes - All requirements specified
+                - Partial - Some requirements pending
+                - No - Requirements not documented
+          - artifactType: input
+            details:
+              label: Rollback plan documented?
+              type: radio
+              options:
+                - Yes
+                - No
+      
+      - id: Local.monitoring-plan
+        name: Ongoing Monitoring Plan
+        description: Define monitoring approach per SR 11-7 ongoing monitoring requirements
+        definition:
+          - artifactType: input
+            details:
+              label: Performance monitoring frequency
+              type: select
+              options:
+                - Real-time
+                - Daily
+                - Weekly
+                - Monthly
+                - Quarterly
+          - artifactType: input
+            details:
+              label: Monitoring metrics to track
+              type: checkbox
+              options:
+                - Model accuracy/performance metrics
+                - Data drift indicators
+                - Prediction drift indicators
+                - Business KPI impact
+                - Override rates
+                - System performance (latency/throughput)
+                - Fairness metrics over time
+          - artifactType: input
+            details:
+              label: Automated monitoring alerts configured?
+              type: radio
+              options:
+                - Yes - All alerts configured
+                - Partial - Some alerts pending
+                - No - Manual monitoring only
+          - artifactType: policyScriptedCheck
+            details:
+              name: Generate Monitoring Configuration
+              command: python /scripts/generate_monitoring_config.py --model-id ${model_id} --monitoring-frequency ${monitoring_frequency} --alert-channels "${alert_channels}"
+              parameters:
+                - name: model_id
+                  type: text
+                  default: ${model_registry_id}
+                - name: monitoring_frequency
+                  type: select
+                  options: [realtime, daily, weekly, monthly]
+                  default: daily
+                - name: alert_channels
+                  type: text
+                  default: email,slack
+              environment: Domino Standard Environment Py3.10
+              hardwareTier: small-k8s
+              volumeSizeGiB: 4
+              outputTypes:
+                - json
+                - yaml
+      
+      - id: Local.validation-schedule
+        name: Revalidation Schedule
+        description: Define ongoing validation requirements
+        definition:
+          - artifactType: input
+            details:
+              label: Scheduled revalidation frequency
+              type: select
+              options:
+                - Monthly (High risk models)
+                - Quarterly
+                - Semi-annually
+                - Annually
+                - Event-driven only
+          - artifactType: input
+            details:
+              label: Revalidation triggers defined
+              type: checkbox
+              options:
+                - Performance degradation thresholds
+                - Significant data drift
+                - High override rate
+                - Regulatory changes
+                - Business process changes
+                - Time-based (calendar)
+                - Volume thresholds
+        visibilityRule: string(classificationValue) != "00"
+    
+    approvals:
+      - name: Production Deployment Approval
+        allowAdditionalApprovers: true
+        approvers:
+          - modeling-leadership
+          - it-leadership
+          - lob-leadership
+        evidence:
+          id: Local.deployment-signoff
+          name: Production Deployment Authorization
+          description: Final approval to deploy model to production
+          definition:
+            - artifactType: input
+              details:
+                label: All production readiness criteria met?
+                type: radio
+                options:
+                  - Yes - Ready for deployment
+                  - No - Issues to resolve
+            - artifactType: input
+              details:
+                label: Deployment authorized by
+                type: select
+                options:
+                  - Model Owner
+                  - Business Line Head
+                  - Chief Risk Officer
+                  - Model Risk Committee
+            - artifactType: input
+              details:
+                label: Post-deployment review date
+                type: date
+
+  - name: Post-Implementation Review
+    evidenceSet:
+      - id: Local.initial-performance
+        name: Initial Performance Review
+        description: Assess model performance after initial deployment period
+        definition:
+          - artifactType: input
+            details:
+              label: Days in production
+              type: numeric
+              min: 0
+              max: 365
+          - artifactType: input
+            details:
+              label: Model performing as expected?
+              type: radio
+              options:
+                - Exceeding expectations
+                - Meeting expectations
+                - Below expectations but acceptable
+                - Not meeting expectations
+          - artifactType: input
+            details:
+              label: Any unexpected behaviors observed?
+              type: radio
+              options:
+                - No unexpected behaviors
+                - Minor issues observed
+                - Significant issues requiring attention
+          - artifactType: policyScriptedCheck
+            details:
+              name: Post-Implementation Performance Analysis
+              command: python /scripts/post_implementation_review.py --model-id ${model_id} --review-period ${review_period} --compare-to-validation true
+              parameters:
+                - name: model_id
+                  type: text
+                  default: ${model_registry_id}
+                - name: review_period
+                  type: select
+                  options: [30_days, 60_days, 90_days, 180_days]
+                  default: 90_days
+              environment: Domino Standard Environment Py3.10
+              hardwareTier: medium
+              volumeSizeGiB: 16
+              outputTypes:
+                - pdf
+                - png
+                - json
+      
+      - id: Local.outcomes-analysis
+        name: Outcomes Analysis
+        description: Compare actual outcomes to model predictions per SR 11-7
+        definition:
+          - artifactType: input
+            details:
+              label: Outcomes analysis completed?
+              type: radio
+              options:
+                - Yes - Full analysis complete
+                - Partial - Limited data available
+                - No - Too early for analysis
+          - artifactType: input
+            details:
+              label: Model accuracy compared to validation
+              type: select
+              options:
+                - Significantly better
+                - Slightly better
+                - As expected
+                - Slightly worse
+                - Significantly worse
+          - artifactType: input
+            details:
+              label: Document findings from outcomes analysis
+              type: textarea
+              placeholder: Describe key findings, any degradation patterns, and recommendations...
+        visibilityRule: string(classificationValue) != "00"
+    
+    approvals:
+      - name: Post-Implementation Sign Off
+        allowAdditionalApprovers: false
+        approvers:
+          - modeling-review
+          - lob-leadership
+        evidence:
+          id: Local.post-implementation-signoff
+          name: Post-Implementation Review Approval
+          description: Confirm model is performing acceptably in production
+          definition:
+            - artifactType: input
+              details:
+                label: Model approved to continue in production?
+                type: radio
+                options:
+                  - Yes - Continue as planned
+                  - Yes - With enhanced monitoring
+                  - Conditional - Requires remediation
+                  - No - Remove from production
+            - artifactType: input
+              details:
+                label: Next review date
+                type: date
